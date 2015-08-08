@@ -38,14 +38,26 @@ Get-SystemInfo -computername Server1,Server2
     )
     BEGIN {
         Write-Verbose "Error log will be $ErrorLog"
-    }
+    } #BEGIN
     PROCESS {
         Write-Verbose "Beginning PROCESS block"
         foreach ($computer in $ComputerName) {
             Write-Verbose "Querying $computer"
-            $os = Get-WmiObject -Class win32_operatingSystem `
-                                -computername $Computer
-
+            Try{
+                $everything_ok = $True
+                $os = Get-WmiObject -class win32_operatingsystem`
+                                    -computerName $Computer`
+                                    -erroraction Stop
+            } Catch{
+                $everything_ok = $False
+                Write-Warning "$computer failed"
+                if ($LogErrors) {
+                    $computer | out-file $ErrorLog -append
+                    Write-Warning "Logged in $errorlog"
+                } #if $logerrors
+            }# Try Catch
+            if ($everything_ok) {
+            
             $comp = Get-WmiObject -Class Win32_ComputerSystem `
                                   -ComputerName $computer
 
@@ -61,8 +73,9 @@ Get-SystemInfo -computername Server1,Server2
             Write-Verbose "WMI queries complete"
             $obj = New-Object -TypeName PSObject -Property $props
             Write-Output $obj
-        }
-    }
+            } #if ($everything_ok)
+        }#foreach
+    } #PROCESS
     END {}
 }
 #Write-Host "--------  PIPELINE MODE --------"
@@ -71,4 +84,5 @@ Get-SystemInfo -computername Server1,Server2
 #Write-Host "--------  PARAM MODE --------"
 #Get-SystemInfo #-host localhost, OKPAL434654 -Verbose
 #Get-systeminfo -host one,two,three,four,five,six,seven,eight,nine,ten,eleven
-help get-systeminfo -full
+#help get-systeminfo -full
+Get-SystemInfo -computername applesause -logerrors
