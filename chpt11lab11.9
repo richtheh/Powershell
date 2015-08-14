@@ -1,0 +1,55 @@
+function export-eventlogsource {
+[CmdletBinding()]
+    param(
+        [Parameter(Position=0, Mandatory=$true, Helpmessage = "Enter a computername", ValuefromPipeline=$true)]
+        [string]$Computername,
+        [Parameter(Position=1, Mandatory=$true, Helpmessage = "Enter a classic event log name like System")]
+        [string]$log,
+        [int]$newest = 100
+
+    )
+    Begin {
+        Write-Verbose "Starting export event source function"
+        #the date format is case sensative
+        $datestring = get-date -format "yyyyMMdd"
+        $logpath = join-path -path "C:\work" -childpath $datestring
+
+        if (! (test-path -path $logpath)) {
+            Write-Verbose "Creating $logpath"
+            mkdir $logpath
+        }
+        Write-Verbose "Logging results to $logpath"
+    }
+
+    Process {
+        Write-Verbose "Getting newest $newest $log event log entries from $computername"
+        Try {
+            Write-host $computername.ToUpper() -ForegroundColor Green
+            $logs = Get-EventLog -logname $log -Newest $newest -ComputerName $computername -ErrorAction Stop
+
+            if ($logs) {
+                Write-Verbose "Sorting $($logs.count) entries"
+                $logs | sort source |foreach {
+                    $logfile = join-path -path $logpath -childpath "$computername-$($_.Source).txt"
+                    $_ | format-list TimeWritten, MachineName, EventID, EntryType, Message | Out-file -FilePath $logfile -append
+
+                    #clear variables for next time
+                    Remove-Variable -name logs, logfile
+                } #foreach
+                else {
+                    Write-Warning "No logged events found for $log on $computername"
+                } #else
+            } #if $logs
+        } #Try
+
+        Catch {
+            Write-Warning $_.exception.message
+        }
+    }
+
+    End {
+        dir $logpath
+        Write-Verbose "Finished export event source function"
+    }
+
+}
